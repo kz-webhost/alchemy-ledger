@@ -1,2 +1,3 @@
+# Let search engines read the noindex directive in the HTML.
 User-agent: *
-Disallow: /
+Allow: /
