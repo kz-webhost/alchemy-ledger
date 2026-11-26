@@ -1,7 +1,7 @@
 import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } from './economics.mjs';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses } from './recipe-links.mjs';
-import { learningRequirements } from './learning.mjs?v=learning-2';
+import { learningRequirements, craftingRequirements } from './learning.mjs?v=tools-1';
 'use strict';
 const $ = id => document.getElementById(id);
 const BUY_COLOR='#6bd6ff', SALE_COLOR='#f6cf68';
@@ -29,6 +29,8 @@ function list(){
   const quote=document.createElement('span');quote.className='item-quote';quote.textContent=`판매 ${money(ev.sale)}${item.recipe?' / 재료 '+money(ev.cost):''}`;
   main.append(n,quote);
   if(item.recipe){const req=learningRequirements(item.recipe),label=document.createElement('span');label.className='item-learning';label.textContent=`학습: ${req.skill} · ${req.level}`;main.append(label);}
+  const tools=craftingRequirements(item.recipe);
+  if(tools){const label=document.createElement('span');label.className='item-tools';label.textContent=tools;main.append(label);}
   const uses=productUses.get(item.id)||[];
   if(uses.length){const label=document.createElement('span');label.className='item-uses';label.textContent=`다른 제작의 재료 · ${uses.length}개 제작품`;main.append(label);}
   const own=data.trades.filter(t=>t.id===item.id);if(own.length){const label=document.createElement('span');label.className='item-trades';label.textContent=`내 구매 ${own.filter(t=>t.kind==='buy').length}건 / 판매 ${own.filter(t=>t.kind==='sale').length}건`;main.append(label);}
@@ -60,6 +62,9 @@ function render(){
   $('learning-note').textContent=req.note;
   $('learning-quest').hidden=!req.quest;$('learning-quest').textContent=req.quest;
  }
+ const tools=craftingRequirements(item.recipe);
+ $('crafting-requirements').hidden=!tools;
+ $('crafting-tools').textContent=tools;
  const uses=productUses.get(item.id)||[];
  $('product-uses').hidden=!uses.length;
  $('product-use-list').replaceChildren();

@@ -9,3 +9,10 @@ export function learningRequirements(recipe) {
     ? `제조법을 퀘스트로 직접 얻으려면 ${req.questLevel}레벨 이상이 필요해요. 거래 가능한 제조법은 경매장 등에서 구할 수 있어요.` : '';
   return { skill, level, note, quest };
 }
+
+export function craftingRequirements(recipe) {
+  return (recipe?.craftingRequirements || []).map(req => {
+    const label = req.kind === 'tool' ? '필요 도구' : req.kind === 'area' ? '필요 장소' : '필요 시설';
+    return `${label}: ${req.name}`;
+  }).join(' · ');
+}
