@@ -3,7 +3,7 @@ import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs
 import { buildProductUses } from './recipe-links.mjs';
 import { craftingCooldown } from './cooldowns.mjs?v=cooldowns-1';
 import { matchesRecipeFilters, recipeStatus, normalizePreferences, defaultFilters, STORAGE_KEY } from './recipe-filters.mjs?v=filters-1';
-import { learningRequirements, craftingRequirements } from './learning.mjs?v=audit-1';
+import { learningRequirements, craftingRequirements } from './learning.mjs?v=level-text-1';
 'use strict';
 const $ = id => document.getElementById(id);
 let preferences = normalizePreferences(null);
@@ -48,7 +48,7 @@ function list(preserveSelection=false){
   if(item.recipe){const badge=document.createElement('span');badge.className='knowledge-badge '+recipeStatus(item,knowledge);badge.textContent=statusLabels[recipeStatus(item,knowledge)];n.append(badge);}
   const quote=document.createElement('span');quote.className='item-quote';quote.textContent=`판매 ${money(ev.sale)}${item.recipe?' / 재료 '+money(ev.cost):''}`;
   main.append(n,quote);
-  if(item.recipe){const req=learningRequirements(item.recipe),label=document.createElement('span');label.className='item-learning';label.textContent=`학습: ${req.skill} · ${req.level}`;main.append(label);}
+  if(item.recipe){const req=learningRequirements(item.recipe),label=document.createElement('span');label.className='item-learning';label.textContent=`학습: ${[req.skill,req.level].filter(Boolean).join(' · ')}`;main.append(label);}
   if(item.recipe){const req=learningRequirements(item.recipe);for(const text of [req.reputation,req.use])if(text){const label=document.createElement('span');label.className='item-learning';label.textContent=text;main.append(label);}}
   const tools=craftingRequirements(item.recipe);
   if(item.recipe){const cd=craftingCooldown(item.recipe);if(cd.active){const label=document.createElement('span');label.className='item-cooldown';label.textContent=cd.label;main.append(label);}}
@@ -82,10 +82,10 @@ function render(){
  if(item.recipe){
   const req=learningRequirements(item.recipe);
   $('learning-skill').textContent=req.skill;
-  $('learning-level').textContent=req.level;
+  $('learning-level').hidden=!req.level;$('learning-level').textContent=req.level;
   $('learning-reputation').hidden=!req.reputation;$('learning-reputation').textContent=req.reputation;
   $('item-use-level').hidden=!req.use;$('item-use-level').textContent=req.use;
-  $('learning-note').textContent=req.note;
+  $('learning-note').hidden=!req.note;$('learning-note').textContent=req.note;
   $('learning-acquisition').hidden=!req.acquisition;$('learning-acquisition').textContent=req.acquisition;
   $('learning-quest').hidden=!req.quest;$('learning-quest').textContent=req.quest;
  }
