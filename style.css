@@ -15,3 +15,9 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid #5265
 .product-uses button span:last-child{color:var(--muted);flex-shrink:0}
 .product-uses button:hover span:first-child{color:var(--gold)}
 @media(max-width:700px){.product-uses{padding:14px 12px}.product-uses button{flex-wrap:wrap;gap:2px 10px}}
+
+.item-learning{font-size:.875rem;line-height:1.6;color:var(--muted);word-break:keep-all}
+.learning{margin:20px 0;padding:14px 0;border-block:1px solid var(--line)}
+.learning h3{font-size:1rem;font-weight:500;color:var(--gold);margin:0 0 10px}
+.learning p{font-size:.875rem;color:var(--muted);line-height:1.8}
+.learning .learning-values{display:flex;flex-wrap:wrap;gap:4px 24px;font-size:1rem;color:var(--ink);margin-bottom:6px}

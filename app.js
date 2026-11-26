@@ -1,6 +1,7 @@
 import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } from './economics.mjs';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses } from './recipe-links.mjs';
+import { learningRequirements } from './learning.mjs';
 'use strict';
 const $ = id => document.getElementById(id);
 const BUY_COLOR='#6bd6ff', SALE_COLOR='#f6cf68';
@@ -27,6 +28,7 @@ function list(){
   const n=document.createElement('span');n.className='item-name';n.textContent=item.name;
   const quote=document.createElement('span');quote.className='item-quote';quote.textContent=`판매 ${money(ev.sale)}${item.recipe?' / 재료 '+money(ev.cost):''}`;
   main.append(n,quote);
+  if(item.recipe){const req=learningRequirements(item.recipe),label=document.createElement('span');label.className='item-learning';label.textContent=`학습: ${req.skill} · ${req.level}`;main.append(label);}
   const uses=productUses.get(item.id)||[];
   if(uses.length){const label=document.createElement('span');label.className='item-uses';label.textContent=`다른 제작의 재료 · ${uses.length}개 제작품`;main.append(label);}
   const own=data.trades.filter(t=>t.id===item.id);if(own.length){const label=document.createElement('span');label.className='item-trades';label.textContent=`내 구매 ${own.filter(t=>t.kind==='buy').length}건 / 판매 ${own.filter(t=>t.kind==='sale').length}건`;main.append(label);}
@@ -50,6 +52,14 @@ function render(){
  const priced=points.filter(p=>p.min!=null), last=latest(item);
  $('item-title').textContent=item.name;
  $('category').textContent=`${item.recipe?'제작품':'재료 / 경매 품목'} · ${typeof item.id==='number'?'아이템 '+item.id:'거래 기록 품목'}`;
+ $('learning').hidden=!item.recipe;
+ if(item.recipe){
+  const req=learningRequirements(item.recipe);
+  $('learning-skill').textContent=req.skill;
+  $('learning-level').textContent=req.level;
+  $('learning-note').textContent=req.note;
+  $('learning-quest').hidden=!req.quest;$('learning-quest').textContent=req.quest;
+ }
  const uses=productUses.get(item.id)||[];
  $('product-uses').hidden=!uses.length;
  $('product-use-list').replaceChildren();
