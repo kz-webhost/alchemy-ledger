@@ -1,7 +1,7 @@
 import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } from './economics.mjs';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses } from './recipe-links.mjs';
-import { learningRequirements, craftingRequirements } from './learning.mjs?v=cleric-1';
+import { learningRequirements, craftingRequirements } from './learning.mjs?v=audit-1';
 'use strict';
 const $ = id => document.getElementById(id);
 const BUY_COLOR='#6bd6ff', SALE_COLOR='#f6cf68';
@@ -63,6 +63,7 @@ function render(){
   $('learning-reputation').hidden=!req.reputation;$('learning-reputation').textContent=req.reputation;
   $('item-use-level').hidden=!req.use;$('item-use-level').textContent=req.use;
   $('learning-note').textContent=req.note;
+  $('learning-acquisition').hidden=!req.acquisition;$('learning-acquisition').textContent=req.acquisition;
   $('learning-quest').hidden=!req.quest;$('learning-quest').textContent=req.quest;
  }
  const tools=craftingRequirements(item.recipe);
