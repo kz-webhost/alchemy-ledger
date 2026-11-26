@@ -2,17 +2,19 @@ import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } 
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses } from './recipe-links.mjs';
 import { craftingCooldown } from './cooldowns.mjs?v=cooldowns-1';
-import { matchesRecipeFilters, recipeStatus, normalizePreferences, defaultFilters, STORAGE_KEY } from './recipe-filters.mjs?v=filters-1';
+import { matchesRecipeFilters, recipeStatus, normalizePreferences, defaultFilters, STORAGE_KEY } from './recipe-filters.mjs?v=game-knowledge-1';
+import { loadGameKnowledge } from './game-knowledge.mjs?v=game-knowledge-1';
 import { learningRequirements, craftingRequirements } from './learning.mjs?v=level-text-1';
 'use strict';
 const $ = id => document.getElementById(id);
 let preferences = normalizePreferences(null);
 try { preferences = normalizePreferences(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch {}
-let { filters, knowledge } = preferences;
-const statusLabels = { learned: '습득', unlearned: '미습득', unknown: '습득 미설정' };
+let { filters } = preferences;
+let knowledge = {};
+const statusLabels = { learned: '습득', unlearned: '미습득', unknown: '습득 미확인' };
 function savePreferences() {
- try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ filters, knowledge })); }
- catch { $('storage-note').textContent='브라우저 저장이 차단되어 새로고침하면 설정이 초기화돼요.'; }
+ try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ filters })); }
+ catch { $('storage-note').textContent='브라우저 저장이 차단되어 새로고침하면 필터가 초기화돼요.'; }
 }
 function syncFilters() {
  $('learned-filter').value=filters.status;
@@ -77,7 +79,7 @@ function render(){
  $('item-title').textContent=item.name;
  $('category').textContent=`${item.recipe?'제작품':'재료 / 경매 품목'} · ${typeof item.id==='number'?'아이템 '+item.id:'거래 기록 품목'}`;
  $('recipe-knowledge').hidden=!item.recipe;
- if(item.recipe)$('recipe-status').value=recipeStatus(item,knowledge);
+ if(item.recipe)$('recipe-status').textContent=statusLabels[recipeStatus(item,knowledge)];
  $('learning').hidden=!item.recipe;
  if(item.recipe){
   const req=learningRequirements(item.recipe);
@@ -184,15 +186,22 @@ for(const id of ['learned-filter','character-level','alchemy-skill','include-unk
  });
 }
 $('reset-recipe-filters').addEventListener('click',()=>{filters=defaultFilters();syncFilters();savePreferences();refreshFilters();});
-$('recipe-status').addEventListener('change',()=>{
- if(!selected?.recipe)return;
- const status=$('recipe-status').value;
- if(status==='unknown')delete knowledge[String(selected.id)];
- else knowledge[String(selected.id)]=status==='learned';
- savePreferences();refreshFilters();
-});
 $('trade-only').addEventListener('change',()=>{if($('trade-only').checked)$('craft-only').checked=false;refreshFilters();});
 $('sort').addEventListener('change',refreshFilters);
 $('search').addEventListener('input',refreshFilters);$('craft-only').addEventListener('change',refreshFilters);
 $('ranges').addEventListener('click',e=>{const b=e.target.closest('[data-hours]');if(b&&data){hours=Number(b.dataset.hours);render();}});
-fetch('data.json?v='+document.querySelector('meta[name="data-version"]').content,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data');return r.json();}).then(d=>{data=d;data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));productUses=buildProductUses(d.items);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
+function applyGameKnowledge(result) {
+ const {snapshot,cached}=result;
+ knowledge=snapshot?.items||{};
+ const saved=snapshot?.savedAt?` · 게임 저장 ${date(snapshot.savedAt)} (한국)`:'';
+ const count=Object.keys(knowledge).length;
+ $('knowledge-sync').textContent=snapshot?`최근 접속 캐릭터의 게임 캐시 · ${count}개 확인${saved}${cached?' · 연결 실패로 브라우저 캐시 사용':''}`:'저장된 게임 습득 기록이 아직 없어요. 게임에서 연금술 창을 한 번 열고 /reload 또는 로그아웃해 주세요.';
+}
+// Avoid accessing localStorage outside a guarded call (some browsers block it).
+const knowledgeStorage={getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)};
+const fetchKnowledge=()=>loadGameKnowledge(fetch,knowledgeStorage);
+Promise.all([
+ fetch('data.json?v='+document.querySelector('meta[name="data-version"]').content,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data');return r.json();}),
+ fetchKnowledge()
+]).then(([d,k])=>{data=d;applyGameKnowledge(k);data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));productUses=buildProductUses(d.items);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
+setInterval(async()=>{if(data&&!document.hidden){applyGameKnowledge(await fetchKnowledge());refreshFilters();}},60000);

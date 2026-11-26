@@ -47,3 +47,6 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid #5265
 .crafting-cooldown h3{font-size:1rem;font-weight:500;color:#d6b5ff;margin:0 0 10px}
 .crafting-cooldown p{font-size:.875rem;line-height:1.8;word-break:keep-all}
 #cooldown-value{color:var(--ink);font-size:1rem;margin-bottom:6px}
+
+.recipe-knowledge h3{font-size:.9rem;font-weight:500;color:var(--gold);margin:0}
+#recipe-status{font-size:1rem;color:var(--green)}

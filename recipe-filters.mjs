@@ -31,16 +31,14 @@ export const STORAGE_KEY = 'alchemy-ledger-recipe-filters-v1';
 export const defaultFilters = () => ({ status: 'all', level: null, skill: null, includeUnknown: true });
 
 export function normalizePreferences(value) {
-  const filters = defaultFilters(), knowledge = {};
-  if (!value || typeof value !== 'object') return { filters, knowledge };
+  const filters = defaultFilters();
+  if (!value || typeof value !== 'object') return { filters };
   const saved = value.filters || {};
   if (['all', 'learned', 'unlearned', 'unknown'].includes(saved.status)) filters.status = saved.status;
   for (const [key, min, max] of [['level', 1, 60], ['skill', 0, 300]]) {
     if (Number.isInteger(saved[key]) && saved[key] >= min && saved[key] <= max) filters[key] = saved[key];
   }
   if (typeof saved.includeUnknown === 'boolean') filters.includeUnknown = saved.includeUnknown;
-  for (const [id, learned] of Object.entries(value.knowledge || {})) {
-    if (/^[1-9]\d*$/.test(id) && typeof learned === 'boolean') knowledge[id] = learned;
-  }
-  return { filters, knowledge };
+  // Older manually entered knowledge must never override the game's cache.
+  return { filters };
 }
