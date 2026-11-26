@@ -1,7 +1,7 @@
 import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } from './economics.mjs';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses } from './recipe-links.mjs';
-import { learningRequirements, craftingRequirements } from './learning.mjs?v=tools-1';
+import { learningRequirements, craftingRequirements } from './learning.mjs?v=cleric-1';
 'use strict';
 const $ = id => document.getElementById(id);
 const BUY_COLOR='#6bd6ff', SALE_COLOR='#f6cf68';
@@ -29,6 +29,7 @@ function list(){
   const quote=document.createElement('span');quote.className='item-quote';quote.textContent=`판매 ${money(ev.sale)}${item.recipe?' / 재료 '+money(ev.cost):''}`;
   main.append(n,quote);
   if(item.recipe){const req=learningRequirements(item.recipe),label=document.createElement('span');label.className='item-learning';label.textContent=`학습: ${req.skill} · ${req.level}`;main.append(label);}
+  if(item.recipe){const req=learningRequirements(item.recipe);for(const text of [req.reputation,req.use])if(text){const label=document.createElement('span');label.className='item-learning';label.textContent=text;main.append(label);}}
   const tools=craftingRequirements(item.recipe);
   if(tools){const label=document.createElement('span');label.className='item-tools';label.textContent=tools;main.append(label);}
   const uses=productUses.get(item.id)||[];
@@ -59,6 +60,8 @@ function render(){
   const req=learningRequirements(item.recipe);
   $('learning-skill').textContent=req.skill;
   $('learning-level').textContent=req.level;
+  $('learning-reputation').hidden=!req.reputation;$('learning-reputation').textContent=req.reputation;
+  $('item-use-level').hidden=!req.use;$('item-use-level').textContent=req.use;
   $('learning-note').textContent=req.note;
   $('learning-quest').hidden=!req.quest;$('learning-quest').textContent=req.quest;
  }
