@@ -1,6 +1,7 @@
 import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } from './economics.mjs';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses } from './recipe-links.mjs';
+import { craftingCooldown } from './cooldowns.mjs?v=cooldowns-1';
 import { matchesRecipeFilters, recipeStatus, normalizePreferences, defaultFilters, STORAGE_KEY } from './recipe-filters.mjs?v=filters-1';
 import { learningRequirements, craftingRequirements } from './learning.mjs?v=audit-1';
 'use strict';
@@ -50,6 +51,7 @@ function list(preserveSelection=false){
   if(item.recipe){const req=learningRequirements(item.recipe),label=document.createElement('span');label.className='item-learning';label.textContent=`학습: ${req.skill} · ${req.level}`;main.append(label);}
   if(item.recipe){const req=learningRequirements(item.recipe);for(const text of [req.reputation,req.use])if(text){const label=document.createElement('span');label.className='item-learning';label.textContent=text;main.append(label);}}
   const tools=craftingRequirements(item.recipe);
+  if(item.recipe){const cd=craftingCooldown(item.recipe);if(cd.active){const label=document.createElement('span');label.className='item-cooldown';label.textContent=cd.label;main.append(label);}}
   if(tools){const label=document.createElement('span');label.className='item-tools';label.textContent=tools;main.append(label);}
   const uses=productUses.get(item.id)||[];
   if(uses.length){const label=document.createElement('span');label.className='item-uses';label.textContent=`다른 제작의 재료 · ${uses.length}개 제작품`;main.append(label);}
@@ -88,6 +90,8 @@ function render(){
   $('learning-quest').hidden=!req.quest;$('learning-quest').textContent=req.quest;
  }
  const tools=craftingRequirements(item.recipe);
+ $('crafting-cooldown').hidden=!item.recipe;
+ if(item.recipe){const cd=craftingCooldown(item.recipe);$('cooldown-value').textContent=cd.label;$('cooldown-note').textContent=cd.note;}
  $('crafting-requirements').hidden=!tools;
  $('crafting-tools').textContent=tools;
  const uses=productUses.get(item.id)||[];

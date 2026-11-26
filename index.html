@@ -2,11 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="data-version" content="1795704407">
+<meta name="data-version" content="1795728313">
 <meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex"><meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'">
 <title>연금장부 — 시세 그래프</title><meta name="description" content="연금술 아이템의 경매장 시세와 제작 재료비를 비교하는 공개 미리보기">
-<link rel="stylesheet" href="style.css?v=filters-1"><script src="app.js?v=filters-1" type="module"></script>
+<link rel="stylesheet" href="style.css?v=cooldowns-1"><script src="app.js?v=cooldowns-1" type="module"></script>
 </head>
 <body>
 <header class="masthead"><div class="brand"><svg viewBox="0 0 32 36" width="30" height="34" aria-hidden="true"><path d="M11 3h10M13 3v10L4 28q-2 5 4 5h16q6 0 4-5l-9-15V3" fill="none" stroke="currentColor" stroke-width="2"/><path d="m9 23-3 6q-1 2 3 2h14q4 0 3-2l-3-6q-6 3-14 0" fill="currentColor"/></svg><div><h1>연금장부</h1><p>경매장 시세 그래프</p></div></div><div class="snapshot"><span class="badge">공개 미리보기</span><p id="updated">시세 불러오는 중</p></div></header>
@@ -16,6 +16,7 @@
 <section id="detail" class="detail" aria-label="선택한 아이템의 시세"><div class="detail-heading"><div><p id="category" class="muted">연금술 시세</p><h2 id="item-title" tabindex="-1">시세를 불러오고 있어요</h2></div><div id="ranges" class="ranges" role="group" aria-label="표시 기간"><button data-hours="24">24시간</button><button data-hours="168">7일</button><button data-hours="720">30일</button><button data-hours="0" aria-pressed="true">전체</button></div></div>
 <section id="recipe-knowledge" class="recipe-knowledge" hidden><label for="recipe-status">내 제조법 습득 여부</label><select id="recipe-status"><option value="unknown">미설정</option><option value="learned">습득</option><option value="unlearned">미습득</option></select><p class="sort-note">이 품목의 제조법을 배웠는지 직접 표시해 주세요.</p></section>
 <section id="learning" class="learning" aria-labelledby="learning-title" hidden><h3 id="learning-title">제조법 학습 조건</h3><p class="learning-values"><span id="learning-skill"></span><span id="learning-level"></span></p><p id="learning-reputation" hidden></p><p id="learning-acquisition" hidden></p><p id="learning-note"></p><p id="learning-quest" hidden></p><p id="item-use-level" hidden></p></section>
+<section id="crafting-cooldown" class="crafting-cooldown" aria-labelledby="cooldown-title" hidden><h3 id="cooldown-title">제작 쿨타임</h3><p id="cooldown-value"></p><p id="cooldown-note" class="muted"></p><p class="muted">제작 후 기다리는 기본 시간입니다. 현재 캐릭터의 남은 시간은 표시하지 않습니다.</p></section>
 <section id="crafting-requirements" class="crafting-requirements" aria-labelledby="crafting-requirements-title" hidden><h3 id="crafting-requirements-title">제작에 필요한 도구·시설</h3><p id="crafting-tools"></p><p class="muted">시설은 근처에, 도구는 가방에 준비해야 해요. 재료비에는 포함하지 않습니다.</p></section>
 <section id="product-uses" class="product-uses" aria-labelledby="product-uses-title" hidden><h3 id="product-uses-title">다른 제작의 재료로도 사용해요</h3><p>저장된 레시피 기준입니다. 제작품을 누르면 해당 시세와 이득을 볼 수 있어요.</p><ul id="product-use-list"></ul></section>
 <dl id="profit-stats" class="profit-stats"><div><dt>예상 이득 / 개 <span>(수수료 5% 차감)</span></dt><dd id="profit">—</dd></div><div><dt>예상 수익률 <span>(재료비 대비)</span></dt><dd id="margin">—</dd></div></dl><p id="valuation-note" class="valuation-note"></p>
