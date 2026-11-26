@@ -1,9 +1,25 @@
 import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } from './economics.mjs';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses } from './recipe-links.mjs';
+import { matchesRecipeFilters, recipeStatus, normalizePreferences, defaultFilters, STORAGE_KEY } from './recipe-filters.mjs?v=filters-1';
 import { learningRequirements, craftingRequirements } from './learning.mjs?v=audit-1';
 'use strict';
 const $ = id => document.getElementById(id);
+let preferences = normalizePreferences(null);
+try { preferences = normalizePreferences(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch {}
+let { filters, knowledge } = preferences;
+const statusLabels = { learned: '습득', unlearned: '미습득', unknown: '습득 미설정' };
+function savePreferences() {
+ try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ filters, knowledge })); }
+ catch { $('storage-note').textContent='브라우저 저장이 차단되어 새로고침하면 설정이 초기화돼요.'; }
+}
+function syncFilters() {
+ $('learned-filter').value=filters.status;
+ $('character-level').value=filters.level??'';
+ $('alchemy-skill').value=filters.skill??'';
+ $('include-unknown').checked=filters.includeUnknown;
+}
+syncFilters();
 const BUY_COLOR='#6bd6ff', SALE_COLOR='#f6cf68';
 const NS = 'http://www.w3.org/2000/svg';
 const colors = ['#e4bf75','#85baff','#d9a0e8','#a9a1ff','#67cbd0','#f2a56f'];
@@ -15,10 +31,12 @@ function node(tag,attrs={},text){const e=document.createElementNS(NS,tag);for(co
 function latest(item){return item.history.at(-1);}
 function priceAt(id,t){const h=byId.get(id)?.history||[];let lo=0,hi=h.length-1,idx=-1;while(lo<=hi){const m=(lo+hi)>>1;if(h[m].t<=t){idx=m;lo=m+1;}else hi=m-1;}for(let i=idx;i>=0;i--)if(h[i].min!=null)return h[i].min;return null;}
 function costAt(item,t){if(!item.recipe)return null;let total=0;for(const p of item.recipe.parts){const v=priceAt(p.id,t);if(v==null)return null;total+=v*p.qty;}return total/item.recipe.outQty;}
-function list(){
+function list(preserveSelection=false){
  const query=$('search').value.trim().toLocaleLowerCase('ko');
- const items=data.items.filter(i=>(!$('craft-only').checked||i.recipe)&&(!$('trade-only').checked||data.trades.some(t=>t.id===i.id))&&(i.name.toLocaleLowerCase('ko').includes(query)||String(i.id).includes(query)));
+ const items=data.items.filter(i=>matchesRecipeFilters(i,filters,knowledge)&&(!$('craft-only').checked||i.recipe)&&(!$('trade-only').checked||data.trades.some(t=>t.id===i.id))&&(i.name.toLocaleLowerCase('ko').includes(query)||String(i.id).includes(query)));
  items.sort((a,b)=>compareItems(a,b,$('sort').value,evaluations));
+ if(!preserveSelection && items.length && !items.some(i=>i.id===selected?.id)){selected=items[0];hidden.clear();}
+ $('detail').hidden=!items.length;$('filter-empty').hidden=items.length>0;
  $('count').textContent=`${items.length}개 품목`;
  $('items').replaceChildren();
  for(const item of items){
@@ -26,6 +44,7 @@ function list(){
   b.className='item';b.type='button';b.setAttribute('aria-pressed',item.id===selected.id);
   const main=document.createElement('span');main.className='item-main';
   const n=document.createElement('span');n.className='item-name';n.textContent=item.name;
+  if(item.recipe){const badge=document.createElement('span');badge.className='knowledge-badge '+recipeStatus(item,knowledge);badge.textContent=statusLabels[recipeStatus(item,knowledge)];n.append(badge);}
   const quote=document.createElement('span');quote.className='item-quote';quote.textContent=`판매 ${money(ev.sale)}${item.recipe?' / 재료 '+money(ev.cost):''}`;
   main.append(n,quote);
   if(item.recipe){const req=learningRequirements(item.recipe),label=document.createElement('span');label.className='item-learning';label.textContent=`학습: ${req.skill} · ${req.level}`;main.append(label);}
@@ -55,6 +74,8 @@ function render(){
  const priced=points.filter(p=>p.min!=null), last=latest(item);
  $('item-title').textContent=item.name;
  $('category').textContent=`${item.recipe?'제작품':'재료 / 경매 품목'} · ${typeof item.id==='number'?'아이템 '+item.id:'거래 기록 품목'}`;
+ $('recipe-knowledge').hidden=!item.recipe;
+ if(item.recipe)$('recipe-status').value=recipeStatus(item,knowledge);
  $('learning').hidden=!item.recipe;
  if(item.recipe){
   const req=learningRequirements(item.recipe);
@@ -75,7 +96,7 @@ function render(){
  for(const use of uses){
   const li=document.createElement('li'),button=document.createElement('button'),name=document.createElement('span'),qty=document.createElement('span');
   button.type='button';name.textContent=use.item.name;qty.textContent=`1회 제작에 ${use.qty}개 필요`;
-  button.append(name,qty);button.onclick=()=>{selected=use.item;hidden.clear();list();render();$('item-title').focus({preventScroll:true});$('item-title').scrollIntoView({block:'start'});};
+  button.append(name,qty);button.onclick=()=>{selected=use.item;hidden.clear();list(true);render();$('item-title').focus({preventScroll:true});$('item-title').scrollIntoView({block:'start'});};
   li.append(button);$('product-use-list').append(li);
  }
  $('latest').textContent=money(last?.min);$('average').textContent=money(priced.length?priced.reduce((s,p)=>s+p.min,0)/priced.length:null);
@@ -150,8 +171,24 @@ function hideTooltip(){$('tooltip').hidden=true;$('crosshair')?.setAttribute('vi
 $('chart').addEventListener('pointerleave',hideTooltip);
 let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>data&&render(),120);});
 $('reagent-trades').addEventListener('change',()=>data&&render());
-$('trade-only').addEventListener('change',()=>{if($('trade-only').checked)$('craft-only').checked=false;if(data)list();});
-$('sort').addEventListener('change',()=>data&&list());
-$('search').addEventListener('input',()=>data&&list());$('craft-only').addEventListener('change',()=>data&&list());
+function refreshFilters(){if(data){list();render();}}
+for(const id of ['learned-filter','character-level','alchemy-skill','include-unknown']) {
+ $(id).addEventListener(id==='character-level'||id==='alchemy-skill'?'input':'change',()=>{
+  if(!$('character-level').validity.valid||!$('alchemy-skill').validity.valid)return;
+  filters={status:$('learned-filter').value,level:$('character-level').value===''?null:Number($('character-level').value),skill:$('alchemy-skill').value===''?null:Number($('alchemy-skill').value),includeUnknown:$('include-unknown').checked};
+  savePreferences();refreshFilters();
+ });
+}
+$('reset-recipe-filters').addEventListener('click',()=>{filters=defaultFilters();syncFilters();savePreferences();refreshFilters();});
+$('recipe-status').addEventListener('change',()=>{
+ if(!selected?.recipe)return;
+ const status=$('recipe-status').value;
+ if(status==='unknown')delete knowledge[String(selected.id)];
+ else knowledge[String(selected.id)]=status==='learned';
+ savePreferences();refreshFilters();
+});
+$('trade-only').addEventListener('change',()=>{if($('trade-only').checked)$('craft-only').checked=false;refreshFilters();});
+$('sort').addEventListener('change',refreshFilters);
+$('search').addEventListener('input',refreshFilters);$('craft-only').addEventListener('change',refreshFilters);
 $('ranges').addEventListener('click',e=>{const b=e.target.closest('[data-hours]');if(b&&data){hours=Number(b.dataset.hours);render();}});
 fetch('data.json?v='+document.querySelector('meta[name="data-version"]').content,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data');return r.json();}).then(d=>{data=d;data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));productUses=buildProductUses(d.items);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
