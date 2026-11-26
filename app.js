@@ -1,7 +1,7 @@
 import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } from './economics.mjs';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses } from './recipe-links.mjs';
-import { learningRequirements } from './learning.mjs';
+import { learningRequirements } from './learning.mjs?v=learning-2';
 'use strict';
 const $ = id => document.getElementById(id);
 const BUY_COLOR='#6bd6ff', SALE_COLOR='#f6cf68';
