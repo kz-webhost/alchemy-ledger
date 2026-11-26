@@ -1,5 +1,6 @@
 import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } from './economics.mjs';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
+import { buildProductUses } from './recipe-links.mjs';
 'use strict';
 const $ = id => document.getElementById(id);
 const BUY_COLOR='#6bd6ff', SALE_COLOR='#f6cf68';
@@ -7,7 +8,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const colors = ['#e4bf75','#85baff','#d9a0e8','#a9a1ff','#67cbd0','#f2a56f'];
 const dt = new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 const shortDate = new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit'});
-let data, byId, evaluations, selected, hours=0, hidden=new Set(), hoverPoints=[], plot;
+let data, byId, evaluations, productUses, selected, hours=0, hidden=new Set(), hoverPoints=[], plot;
 const date = t => dt.format(new Date(t*1000));
 function node(tag,attrs={},text){const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);if(text!=null)e.textContent=text;return e;}
 function latest(item){return item.history.at(-1);}
@@ -26,6 +27,8 @@ function list(){
   const n=document.createElement('span');n.className='item-name';n.textContent=item.name;
   const quote=document.createElement('span');quote.className='item-quote';quote.textContent=`판매 ${money(ev.sale)}${item.recipe?' / 재료 '+money(ev.cost):''}`;
   main.append(n,quote);
+  const uses=productUses.get(item.id)||[];
+  if(uses.length){const label=document.createElement('span');label.className='item-uses';label.textContent=`다른 제작의 재료 · ${uses.length}개 제작품`;main.append(label);}
   const own=data.trades.filter(t=>t.id===item.id);if(own.length){const label=document.createElement('span');label.className='item-trades';label.textContent=`내 구매 ${own.filter(t=>t.kind==='buy').length}건 / 판매 ${own.filter(t=>t.kind==='sale').length}건`;main.append(label);}
   const performance=document.createElement('span');performance.className='item-performance';
   const profit=document.createElement('span');profit.className=outcome(ev.profit);profit.textContent=item.recipe?signedMoney(ev.profit):'—';
@@ -47,6 +50,15 @@ function render(){
  const priced=points.filter(p=>p.min!=null), last=latest(item);
  $('item-title').textContent=item.name;
  $('category').textContent=`${item.recipe?'제작품':'재료 / 경매 품목'} · ${typeof item.id==='number'?'아이템 '+item.id:'거래 기록 품목'}`;
+ const uses=productUses.get(item.id)||[];
+ $('product-uses').hidden=!uses.length;
+ $('product-use-list').replaceChildren();
+ for(const use of uses){
+  const li=document.createElement('li'),button=document.createElement('button'),name=document.createElement('span'),qty=document.createElement('span');
+  button.type='button';name.textContent=use.item.name;qty.textContent=`1회 제작에 ${use.qty}개 필요`;
+  button.append(name,qty);button.onclick=()=>{selected=use.item;hidden.clear();list();render();$('item-title').focus({preventScroll:true});$('item-title').scrollIntoView({block:'start'});};
+  li.append(button);$('product-use-list').append(li);
+ }
  $('latest').textContent=money(last?.min);$('average').textContent=money(priced.length?priced.reduce((s,p)=>s+p.min,0)/priced.length:null);
  $('quantity').textContent=last?.qty!=null?`${last.qty.toLocaleString('ko-KR')}개`:'—';$('cost').textContent=money(evaluations.get(item.id).cost);
  const ev=evaluations.get(item.id);
@@ -123,4 +135,4 @@ $('trade-only').addEventListener('change',()=>{if($('trade-only').checked)$('cra
 $('sort').addEventListener('change',()=>data&&list());
 $('search').addEventListener('input',()=>data&&list());$('craft-only').addEventListener('change',()=>data&&list());
 $('ranges').addEventListener('click',e=>{const b=e.target.closest('[data-hours]');if(b&&data){hours=Number(b.dataset.hours);render();}});
-fetch('data.json?v='+document.querySelector('meta[name="data-version"]').content,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data');return r.json();}).then(d=>{data=d;data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
+fetch('data.json?v='+document.querySelector('meta[name="data-version"]').content,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data');return r.json();}).then(d=>{data=d;data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));productUses=buildProductUses(d.items);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
