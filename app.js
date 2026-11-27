@@ -14,7 +14,7 @@ let knowledge = {};
 const statusLabels = { learned: '습득', unlearned: '미습득', unknown: '습득 미확인' };
 function savePreferences() {
  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ filters })); }
- catch { $('storage-note').textContent='브라우저 저장이 차단되어 새로고침하면 필터가 초기화돼요.'; }
+ catch { $('storage-note').textContent='브라우저 저장이 차단되어 새로고침하면 필터가 초기화돼요.'; $('storage-note').hidden=false; }
 }
 function syncFilters() {
  $('learned-filter').value=filters.status;
