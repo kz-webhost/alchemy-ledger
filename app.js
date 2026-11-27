@@ -1,6 +1,6 @@
 import { money, signedMoney, percent, profitFor, evaluateLatest, compareItems } from './economics.mjs';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
-import { buildProductUses } from './recipe-links.mjs';
+import { buildProductUses, questUsesFor, usageQuantity } from './recipe-links.mjs?v=uses-1';
 import { craftingCooldown } from './cooldowns.mjs?v=cooldowns-1';
 import { matchesRecipeFilters, recipeStatus, normalizePreferences, defaultFilters, STORAGE_KEY } from './recipe-filters.mjs?v=game-knowledge-1';
 import { loadGameKnowledge } from './game-knowledge.mjs?v=game-knowledge-1';
@@ -28,7 +28,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const colors = ['#e4bf75','#85baff','#d9a0e8','#a9a1ff','#67cbd0','#f2a56f'];
 const dt = new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 const shortDate = new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit'});
-let data, byId, evaluations, productUses, selected, hours=0, hidden=new Set(), hoverPoints=[], plot;
+let data, byId, evaluations, productUses, selected, usageData={items:{}}, hours=0, hidden=new Set(), hoverPoints=[], plot;
 const date = t => dt.format(new Date(t*1000));
 function node(tag,attrs={},text){const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);if(text!=null)e.textContent=text;return e;}
 function latest(item){return item.history.at(-1);}
@@ -56,7 +56,9 @@ function list(preserveSelection=false){
   if(item.recipe){const cd=craftingCooldown(item.recipe);if(cd.active){const label=document.createElement('span');label.className='item-cooldown';label.textContent=cd.label;main.append(label);}}
   if(tools){const label=document.createElement('span');label.className='item-tools';label.textContent=tools;main.append(label);}
   const uses=productUses.get(item.id)||[];
-  if(uses.length){const label=document.createElement('span');label.className='item-uses';label.textContent=`다른 제작의 재료 · ${uses.length}개 제작품`;main.append(label);}
+  if(uses.length){const label=document.createElement('span');label.className='item-uses';label.textContent=`제작 재료·도구 · ${uses.length}종`;main.append(label);}
+  const quests=questUsesFor(item.id,usageData);
+  if(quests.length){const label=document.createElement('span');label.className='item-quests';label.textContent=`퀘스트 필요 · ${quests.length}개 퀘스트`;main.append(label);}
   const own=data.trades.filter(t=>t.id===item.id);if(own.length){const label=document.createElement('span');label.className='item-trades';label.textContent=`내 구매 ${own.filter(t=>t.kind==='buy').length}건 / 판매 ${own.filter(t=>t.kind==='sale').length}건`;main.append(label);}
   const performance=document.createElement('span');performance.className='item-performance';
   const profit=document.createElement('span');profit.className=outcome(ev.profit);profit.textContent=item.recipe?signedMoney(ev.profit):'—';
@@ -99,11 +101,28 @@ function render(){
  const uses=productUses.get(item.id)||[];
  $('product-uses').hidden=!uses.length;
  $('product-use-list').replaceChildren();
- for(const use of uses){
-  const li=document.createElement('li'),button=document.createElement('button'),name=document.createElement('span'),qty=document.createElement('span');
-  button.type='button';name.textContent=use.item.name;qty.textContent=`1회 제작에 ${use.qty}개 필요`;
-  button.append(name,qty);button.onclick=()=>{selected=use.item;hidden.clear();list(true);render();$('item-title').focus({preventScroll:true});$('item-title').scrollIntoView({block:'start'});};
-  li.append(button);$('product-use-list').append(li);
+ const professions=new Map();
+ for(const use of uses){if(!professions.has(use.prof))professions.set(use.prof,[]);professions.get(use.prof).push(use);}
+ for(const [profession,entries] of professions){
+  const group=document.createElement('li'),details=document.createElement('details'),summary=document.createElement('summary'),ul=document.createElement('ul');
+  details.open=entries.length<=6;summary.textContent=`${profession} · ${entries.length}종`;
+  for(const use of entries){
+   const li=document.createElement('li'),canOpen=Boolean(use.item?.recipe),row=document.createElement(canOpen?'button':'div'),name=document.createElement('span'),qty=document.createElement('span');
+   row.className='usage-row';name.textContent=use.name;qty.textContent=usageQuantity(use);row.append(name,qty);
+   if(canOpen){row.type='button';row.onclick=()=>{selected=use.item;hidden.clear();list(true);render();$('item-title').focus({preventScroll:true});$('item-title').scrollIntoView({block:'start'});};}
+   li.append(row);ul.append(li);
+  }
+  details.append(summary,ul);group.append(details);$('product-use-list').append(group);
+ }
+ const quests=questUsesFor(item.id,usageData);
+ $('quest-uses').hidden=!quests.length;
+ $('quest-use-list').replaceChildren();
+ for(const quest of quests){
+  const li=document.createElement('li'),name=document.createElement('strong'),qty=document.createElement('span'),meta=document.createElement('small');
+  name.textContent=quest.name;qty.textContent=`${quest.qty}개 필요`;
+  const faction=quest.faction==='Horde'?'호드':quest.faction==='Alliance'?'얼라이언스':'';
+  meta.textContent=[`퀘스트 ${quest.id}`,quest.minLevel?`${quest.minLevel}레벨 이상`:'',faction].filter(Boolean).join(' · ');
+  li.append(name,qty,meta);$('quest-use-list').append(li);
  }
  $('latest').textContent=money(last?.min);$('average').textContent=money(priced.length?priced.reduce((s,p)=>s+p.min,0)/priced.length:null);
  $('quantity').textContent=last?.qty!=null?`${last.qty.toLocaleString('ko-KR')}개`:'—';$('cost').textContent=money(evaluations.get(item.id).cost);
@@ -202,6 +221,7 @@ const knowledgeStorage={getItem:key=>localStorage.getItem(key),setItem:(key,valu
 const fetchKnowledge=()=>loadGameKnowledge(fetch,knowledgeStorage);
 Promise.all([
  fetch('data.json?v='+document.querySelector('meta[name="data-version"]').content,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data');return r.json();}),
- fetchKnowledge()
-]).then(([d,k])=>{data=d;applyGameKnowledge(k);data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));productUses=buildProductUses(d.items);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
+ fetchKnowledge(),
+ fetch('uses.json?v=uses-1',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('uses');return r.json();}).catch(()=>({items:{}}))
+]).then(([d,k,u])=>{data=d;usageData=u;applyGameKnowledge(k);data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));productUses=buildProductUses(d.items,usageData);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
 setInterval(async()=>{if(data&&!document.hidden){applyGameKnowledge(await fetchKnowledge());refreshFilters();}},60000);

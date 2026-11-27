@@ -50,3 +50,17 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid #5265
 
 .recipe-knowledge h3{font-size:.9rem;font-weight:500;color:var(--gold);margin:0}
 #recipe-status{font-size:1rem;color:var(--green)}
+
+.product-uses summary{cursor:pointer;padding:10px 0;color:#a6def3;font-size:.95rem}
+.product-uses details>ul{padding-left:10px}
+.product-uses .usage-row{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:3px 14px;padding:10px 0;font-size:.875rem;line-height:1.7}
+.product-uses .usage-row>span:last-child{color:var(--muted);flex-shrink:0}
+.item-quests{font-size:.875rem;line-height:1.6;color:var(--gold)}
+.quest-uses{margin:20px 0;padding:16px 18px;border-left:3px solid var(--gold);background:#e0bb7508}
+.quest-uses h3{font-size:1rem;font-weight:500;color:var(--gold);margin:0 0 10px}
+.quest-uses ul{list-style:none;padding:0;margin:0}
+.quest-uses li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 14px;padding:12px 0;font-size:.9rem;line-height:1.7}
+.quest-uses li+li{border-top:1px solid var(--line)}
+.quest-uses strong{font-weight:500}.quest-uses li>span{color:var(--gold);white-space:nowrap}
+.quest-uses small{grid-column:1/-1;color:var(--muted);font-size:.875rem}
+@media(max-width:700px){.quest-uses{padding:14px 12px}.quest-uses li{gap:4px 10px}}
