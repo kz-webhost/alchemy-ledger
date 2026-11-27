@@ -35,11 +35,15 @@ function node(tag,attrs={},text){const e=document.createElementNS(NS,tag);for(co
 function latest(item){return item.history.at(-1);}
 function priceAt(id,t){const h=byId.get(id)?.history||[];let lo=0,hi=h.length-1,idx=-1;while(lo<=hi){const m=(lo+hi)>>1;if(h[m].t<=t){idx=m;lo=m+1;}else hi=m-1;}for(let i=idx;i>=0;i--)if(h[i].min!=null)return h[i].min;return null;}
 function costAt(item,t,vendor=false){const costs=recipeCosts(item,byId,id=>priceAt(id,t));return vendor?costs.vendorCost:costs.cost;}
+function resetChartSeries(item){
+ hidden=new Set(['auction-cost']);
+ for(const part of item?.recipe?.parts||[]){const price=byId.get(part.id)?.vendorPrice;if(Number.isFinite(price)&&price>0)hidden.add(part.id);}
+}
 function list(preserveSelection=false){
  const query=$('search').value.trim().toLocaleLowerCase('ko');
  const items=data.items.filter(i=>matchesRecipeFilters(i,filters,knowledge)&&(!$('craft-only').checked||i.recipe)&&(!$('trade-only').checked||data.trades.some(t=>t.id===i.id))&&(i.name.toLocaleLowerCase('ko').includes(query)||String(i.id).includes(query)));
  items.sort((a,b)=>compareItems(a,b,$('sort').value,evaluations));
- if(!preserveSelection && items.length && !items.some(i=>i.id===selected?.id)){selected=items[0];hidden.clear();}
+ if(!preserveSelection && items.length && !items.some(i=>i.id===selected?.id)){selected=items[0];resetChartSeries(selected);}
  $('detail').hidden=!items.length;$('filter-empty').hidden=items.length>0;
  $('count').textContent=`${items.length}개 품목`;
  $('items').replaceChildren();
@@ -68,7 +72,7 @@ function list(preserveSelection=false){
   const margin=document.createElement('span');margin.className='item-margin';margin.textContent=item.recipe?(primary.profit==null?'시세 부족':percent(primary.margin)):'재료';
   performance.append(profit,margin);
   if(ev.hasVendor){const secondary=document.createElement('span');secondary.className='item-secondary';secondary.textContent='경매 '+signedMoney(ev.profit)+' / '+percent(ev.margin);secondary.title='경매장 구매 기준 · 재료비 '+money(ev.cost);performance.append(secondary);}
-  b.append(main,performance);b.onclick=()=>{selected=item;hidden.clear();list();render();};$('items').append(b);
+  b.append(main,performance);b.onclick=()=>{selected=item;resetChartSeries(selected);list();render();};$('items').append(b);
  }
  if(!items.length){const p=document.createElement('p');p.className='muted';p.style.padding='16px';p.textContent='일치하는 품목이 없어요.';$('items').append(p);}
 }
@@ -115,7 +119,7 @@ function render(){
   for(const use of entries){
    const li=document.createElement('li'),canOpen=Boolean(use.item?.recipe),row=document.createElement(canOpen?'button':'div'),name=document.createElement('span'),qty=document.createElement('span');
    row.className='usage-row';name.textContent=use.name;qty.textContent=usageQuantity(use);row.append(name,qty);
-   if(canOpen){row.type='button';row.onclick=()=>{selected=use.item;hidden.clear();list(true);render();$('item-title').focus({preventScroll:true});$('item-title').scrollIntoView({block:'start'});};}
+   if(canOpen){row.type='button';row.onclick=()=>{selected=use.item;resetChartSeries(selected);list(true);render();$('item-title').focus({preventScroll:true});$('item-title').scrollIntoView({block:'start'});};}
    li.append(row);ul.append(li);
   }
   details.append(summary,ul);group.append(details);$('product-use-list').append(group);
@@ -237,5 +241,5 @@ Promise.all([
  fetch('data.json?v='+document.querySelector('meta[name="data-version"]').content,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data');return r.json();}),
  fetchKnowledge(),
  fetch('uses.json?v=uses-1',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('uses');return r.json();}).catch(()=>({items:{}}))
-]).then(([d,k,u])=>{data=d;usageData=u;applyGameKnowledge(k);data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));marketWarnings=new Map(d.items.map(i=>[i.id,marketStagnation(i.history,d.updated)]));productUses=buildProductUses(d.items,usageData);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
+]).then(([d,k,u])=>{data=d;usageData=u;applyGameKnowledge(k);data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));marketWarnings=new Map(d.items.map(i=>[i.id,marketStagnation(i.history,d.updated)]));productUses=buildProductUses(d.items,usageData);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];resetChartSeries(selected);$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
 setInterval(async()=>{if(data&&!document.hidden){applyGameKnowledge(await fetchKnowledge());refreshFilters();}},60000);
