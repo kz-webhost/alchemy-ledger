@@ -1,3 +1,4 @@
+import { marketStagnation, MARKET_WARNING_LABEL } from './market-activity.mjs?v=market-warning-1';
 import { money, signedMoney, percent, profitFor, recipeCosts, evaluateLatest, primaryPurchase, compareItems } from './economics.mjs?v=vendor-primary-1';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses, questUsesFor, usageQuantity } from './recipe-links.mjs?v=uses-1';
@@ -28,7 +29,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const colors = ['#e4bf75','#85baff','#d9a0e8','#a9a1ff','#67cbd0','#f2a56f'];
 const dt = new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
 const shortDate = new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit'});
-let data, byId, evaluations, productUses, selected, usageData={items:{}}, hours=0, hidden=new Set(), hoverPoints=[], plot;
+let data, byId, evaluations, productUses, selected, usageData={items:{}}, marketWarnings=new Map(), hours=0, hidden=new Set(), hoverPoints=[], plot;
 const date = t => dt.format(new Date(t*1000));
 function node(tag,attrs={},text){const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);if(text!=null)e.textContent=text;return e;}
 function latest(item){return item.history.at(-1);}
@@ -50,6 +51,8 @@ function list(preserveSelection=false){
   if(item.recipe){const badge=document.createElement('span');badge.className='knowledge-badge '+recipeStatus(item,knowledge);badge.textContent=statusLabels[recipeStatus(item,knowledge)];n.append(badge);}
   const quote=document.createElement('span');quote.className='item-quote';quote.textContent=`판매 ${money(ev.sale)}${item.recipe?' / '+(ev.hasVendor?'상점 재료 ':'재료 ')+money(primary.cost):''}`;
   main.append(n,quote);
+  const warning=marketWarnings.get(item.id);
+  if(warning){const label=document.createElement('span');label.className='market-warning';label.textContent=MARKET_WARNING_LABEL;label.title=marketWarningTitle(warning);main.append(label);}
   if(item.recipe){const req=learningRequirements(item.recipe),label=document.createElement('span');label.className='item-learning';label.textContent=`학습: ${[req.skill,req.level].filter(Boolean).join(' · ')}`;main.append(label);}
   if(item.recipe){const req=learningRequirements(item.recipe);for(const text of [req.reputation,req.use])if(text){const label=document.createElement('span');label.className='item-learning';label.textContent=text;main.append(label);}}
   const tools=craftingRequirements(item.recipe);
@@ -69,6 +72,7 @@ function list(preserveSelection=false){
  }
  if(!items.length){const p=document.createElement('p');p.className='muted';p.style.padding='16px';p.textContent='일치하는 품목이 없어요.';$('items').append(p);}
 }
+function marketWarningTitle(warning){return `${date(warning.from)} ~ ${date(warning.to)} (한국) 수집 기록 기준 판매 부진 추정입니다. 판매와 신규 등록이 동시에 일어날 수 있어 실제 판매 0건을 뜻하지 않습니다.`;}
 function outcome(value){return value==null?'neutral':value>0?'gain':value<0?'loss':'neutral';}
 function render(){
  const item=selected;
@@ -80,6 +84,9 @@ function render(){
  const points=item.history.filter(p=>p.t>=from&&p.t<=to);
  const priced=points.filter(p=>p.min!=null), last=latest(item);
  $('item-title').textContent=item.name;
+ const warning=marketWarnings.get(item.id);
+ $('market-warning').hidden=!warning;$('market-warning').textContent=warning?MARKET_WARNING_LABEL:'';
+ $('market-warning').title=warning?marketWarningTitle(warning):'';
  $('category').textContent=`${item.recipe?'제작품':'재료 / 경매 품목'} · ${typeof item.id==='number'?'아이템 '+item.id:'거래 기록 품목'}`;
  $('learning').hidden=!item.recipe;
  if(item.recipe){
@@ -230,5 +237,5 @@ Promise.all([
  fetch('data.json?v='+document.querySelector('meta[name="data-version"]').content,{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data');return r.json();}),
  fetchKnowledge(),
  fetch('uses.json?v=uses-1',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('uses');return r.json();}).catch(()=>({items:{}}))
-]).then(([d,k,u])=>{data=d;usageData=u;applyGameKnowledge(k);data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));productUses=buildProductUses(d.items,usageData);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
+]).then(([d,k,u])=>{data=d;usageData=u;applyGameKnowledge(k);data.trades??=[];$('trade-overview').textContent=`저장된 내 구매 ${data.trades.filter(t=>t.kind==='buy').length}건 / 판매 ${data.trades.filter(t=>t.kind==='sale').length}건`;byId=new Map(d.items.map(i=>[i.id,i]));marketWarnings=new Map(d.items.map(i=>[i.id,marketStagnation(i.history,d.updated)]));productUses=buildProductUses(d.items,usageData);evaluations=new Map(d.items.map(i=>[i.id,evaluateLatest(i,byId)]));selected=[...d.items].filter(i=>i.recipe).sort((a,b)=>compareItems(a,b,'profit',evaluations))[0]||d.items[0];$('updated').textContent=`마지막 수집 ${date(d.updated)} (한국)`;list();render();}).catch(()=>{$('item-title').textContent='시세를 불러오지 못했어요';$('updated').textContent='시세 파일을 확인할 수 없습니다';$('error').hidden=false;$('error').textContent='페이지를 새로고침해 주세요. 계속 실패하면 시세 파일을 확인해 주세요.';});
 setInterval(async()=>{if(data&&!document.hidden){applyGameKnowledge(await fetchKnowledge());refreshFilters();}},60000);

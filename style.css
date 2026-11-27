@@ -65,3 +65,6 @@ select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid #5265
 .item-secondary{font-size:.7rem;color:var(--muted);white-space:normal;line-height:1.5;max-width:130px}
 .profit-stats .auction-comparison dd{font-size:1.1rem;font-weight:400;color:var(--muted)}
 .profit-stats .auction-comparison dt,.auction-comparison{color:var(--muted);font-size:.8rem}
+
+.market-warning{color:#ffc477;font-size:.8rem;line-height:1.6;cursor:help}
+.detail-market-warning{margin-top:14px;padding:8px 12px;border:1px solid #8c6538;border-radius:5px;background:#ffc47708}
