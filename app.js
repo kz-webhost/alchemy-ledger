@@ -92,7 +92,7 @@ function render(){
   $('learning-quest').hidden=!req.quest;$('learning-quest').textContent=req.quest;
  }
  const tools=craftingRequirements(item.recipe);
- $('crafting-cooldown').hidden=!item.recipe;
+ $('crafting-cooldown').hidden=!item.recipe||item.recipe.cooldown?.seconds===0;
  if(item.recipe){const cd=craftingCooldown(item.recipe);$('cooldown-value').textContent=cd.label;$('cooldown-note').textContent=cd.note;}
  $('crafting-requirements').hidden=!tools;
  $('crafting-tools').textContent=tools;
