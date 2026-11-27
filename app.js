@@ -80,8 +80,6 @@ function render(){
  const priced=points.filter(p=>p.min!=null), last=latest(item);
  $('item-title').textContent=item.name;
  $('category').textContent=`${item.recipe?'제작품':'재료 / 경매 품목'} · ${typeof item.id==='number'?'아이템 '+item.id:'거래 기록 품목'}`;
- $('recipe-knowledge').hidden=!item.recipe;
- if(item.recipe)$('recipe-status').textContent=statusLabels[recipeStatus(item,knowledge)];
  $('learning').hidden=!item.recipe;
  if(item.recipe){
   const req=learningRequirements(item.recipe);
@@ -210,12 +208,9 @@ $('sort').addEventListener('change',refreshFilters);
 $('search').addEventListener('input',refreshFilters);$('craft-only').addEventListener('change',refreshFilters);
 $('ranges').addEventListener('click',e=>{const b=e.target.closest('[data-hours]');if(b&&data){hours=Number(b.dataset.hours);render();}});
 function applyGameKnowledge(result) {
- const {snapshot,cached}=result;
- knowledge=snapshot?.items||{};
- const saved=snapshot?.savedAt?` · 게임 저장 ${date(snapshot.savedAt)} (한국)`:'';
- const count=Object.keys(knowledge).length;
- $('knowledge-sync').textContent=snapshot?`최근 접속 캐릭터의 게임 캐시 · ${count}개 확인${saved}${cached?' · 연결 실패로 브라우저 캐시 사용':''}`:'저장된 게임 습득 기록이 아직 없어요. 게임에서 연금술 창을 한 번 열고 /reload 또는 로그아웃해 주세요.';
+ knowledge=result.snapshot?.items||{};
 }
+
 // Avoid accessing localStorage outside a guarded call (some browsers block it).
 const knowledgeStorage={getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)};
 const fetchKnowledge=()=>loadGameKnowledge(fetch,knowledgeStorage);
