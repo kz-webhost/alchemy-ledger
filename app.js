@@ -135,7 +135,6 @@ function render(){
  $('auction-profit-stat').hidden=!ev.hasVendor;$('auction-margin-stat').hidden=!ev.hasVendor;
  $('auction-profit').textContent=signedMoney(ev.profit);
  $('auction-margin').textContent=percent(ev.margin);
- $('valuation-note').textContent=item.recipe?'이득 = 최근 판매가 × 95% − 최근 재료비. 수익률 = 이득 ÷ 재료비 × 100.'+(ev.hasVendor?' 상점 구매는 확인된 상점 재료만 저장된 구매가로 대체하고, 나머지는 경매 시세를 적용합니다. 상점가는 마지막 상점 방문 시의 할인 적용가이며 과거 그래프에도 같은 가격을 사용합니다.':'')+(primary.profit==null?' 시세가 부족한 경우 —로 표시합니다.':''):'';
  $('chart-period').textContent=`${date(from)} ~ ${date(to)} (한국)`;
  document.querySelectorAll('[data-hours]').forEach(b=>b.setAttribute('aria-pressed',Number(b.dataset.hours)===hours));
  const series=[{key:'min',label:'경매 최저가',color:'#73d6ac',value:t=>priceAt(item.id,t),points:points.map(p=>({t:p.t,v:p.min}))}];
