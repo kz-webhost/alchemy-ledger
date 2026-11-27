@@ -24,18 +24,31 @@ export function profitFor(sale, cost) {
   return { profit, margin: cost > 0 ? profit / cost : null };
 }
 
+// Vendor mode replaces only materials with a recorded, per-unit purchase price.
+// It deliberately uses that price even if the auction house is cheaper.
+export function recipeCosts(item, byId, quote) {
+  if (!item.recipe) return { cost: null, vendorCost: null, hasVendor: false };
+  let cost = 0, vendorCost = 0, hasVendor = false;
+  for (const part of item.recipe.parts) {
+    const material = byId.get(part.id), unit = quote(part.id);
+    const vendor = Number.isFinite(material?.vendorPrice) && material.vendorPrice > 0 ? material.vendorPrice : null;
+    hasVendor ||= vendor != null;
+    if (unit == null) cost = null;
+    else if (cost != null) cost += unit * part.qty;
+    const alternative = vendor ?? unit;
+    if (alternative == null) vendorCost = null;
+    else if (vendorCost != null) vendorCost += alternative * part.qty;
+  }
+  return { cost: cost == null ? null : cost / item.recipe.outQty,
+    vendorCost: hasVendor && vendorCost != null ? vendorCost / item.recipe.outQty : null, hasVendor };
+}
+
 // Latest snapshot of each item; a missing latest quote must not revive an old price.
 export function evaluateLatest(item, byId) {
   const sale = item.history.at(-1)?.min ?? null;
-  if (!item.recipe) return { sale, cost: null, profit: null, margin: null };
-  let cost = 0;
-  for (const part of item.recipe.parts) {
-    const unit = byId.get(part.id)?.history.at(-1)?.min;
-    if (unit == null) return { sale, cost: null, profit: null, margin: null };
-    cost += unit * part.qty;
-  }
-  cost /= item.recipe.outQty;
-  return { sale, cost, ...profitFor(sale, cost) };
+  const costs = recipeCosts(item, byId, id => byId.get(id)?.history.at(-1)?.min ?? null);
+  const vendor = profitFor(sale, costs.vendorCost);
+  return { sale, ...costs, ...profitFor(sale, costs.cost), vendorProfit: vendor.profit, vendorMargin: vendor.margin };
 }
 
 export function compareItems(a, b, mode, evaluations) {
