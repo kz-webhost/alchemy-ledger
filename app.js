@@ -1,4 +1,4 @@
-import { money, signedMoney, percent, profitFor, recipeCosts, evaluateLatest, compareItems } from './economics.mjs?v=vendor-1';
+import { money, signedMoney, percent, profitFor, recipeCosts, evaluateLatest, primaryPurchase, compareItems } from './economics.mjs?v=vendor-primary-1';
 import { selectTrades, chartPeriod, tradeLabel, statusLabel } from './trades.mjs';
 import { buildProductUses, questUsesFor, usageQuantity } from './recipe-links.mjs?v=uses-1';
 import { craftingCooldown } from './cooldowns.mjs?v=cooldowns-1';
@@ -43,12 +43,12 @@ function list(preserveSelection=false){
  $('count').textContent=`${items.length}개 품목`;
  $('items').replaceChildren();
  for(const item of items){
-  const ev=evaluations.get(item.id), b=document.createElement('button');
+  const ev=evaluations.get(item.id), primary=primaryPurchase(ev), b=document.createElement('button');
   b.className='item';b.type='button';b.setAttribute('aria-pressed',item.id===selected.id);
   const main=document.createElement('span');main.className='item-main';
   const n=document.createElement('span');n.className='item-name';n.textContent=item.name;
   if(item.recipe){const badge=document.createElement('span');badge.className='knowledge-badge '+recipeStatus(item,knowledge);badge.textContent=statusLabels[recipeStatus(item,knowledge)];n.append(badge);}
-  const quote=document.createElement('span');quote.className='item-quote';quote.textContent=`판매 ${money(ev.sale)}${item.recipe?' / '+(ev.hasVendor?'경매 재료 ':'재료 ')+money(ev.cost):''}${ev.hasVendor?' / 상점 재료 '+money(ev.vendorCost):''}`;
+  const quote=document.createElement('span');quote.className='item-quote';quote.textContent=`판매 ${money(ev.sale)}${item.recipe?' / '+(ev.hasVendor?'상점 재료 ':'재료 ')+money(primary.cost):''}`;
   main.append(n,quote);
   if(item.recipe){const req=learningRequirements(item.recipe),label=document.createElement('span');label.className='item-learning';label.textContent=`학습: ${[req.skill,req.level].filter(Boolean).join(' · ')}`;main.append(label);}
   if(item.recipe){const req=learningRequirements(item.recipe);for(const text of [req.reputation,req.use])if(text){const label=document.createElement('span');label.className='item-learning';label.textContent=text;main.append(label);}}
@@ -61,10 +61,10 @@ function list(preserveSelection=false){
   if(quests.length){const label=document.createElement('span');label.className='item-quests';label.textContent=`퀘스트 필요 · ${quests.length}개 퀘스트`;main.append(label);}
   const own=data.trades.filter(t=>t.id===item.id);if(own.length){const label=document.createElement('span');label.className='item-trades';label.textContent=`내 구매 ${own.filter(t=>t.kind==='buy').length}건 / 판매 ${own.filter(t=>t.kind==='sale').length}건`;main.append(label);}
   const performance=document.createElement('span');performance.className='item-performance';
-  const profit=document.createElement('span');profit.className=outcome(ev.profit);profit.textContent=item.recipe?(ev.hasVendor?'경매 ':'')+signedMoney(ev.profit):'—';
-  const margin=document.createElement('span');margin.className='item-margin';margin.textContent=item.recipe?(ev.profit==null?'시세 부족':percent(ev.margin)):'재료';
+  const profit=document.createElement('span');profit.className=outcome(primary.profit);profit.textContent=item.recipe?(ev.hasVendor?'상점 ':'')+signedMoney(primary.profit):'—';
+  const margin=document.createElement('span');margin.className='item-margin';margin.textContent=item.recipe?(primary.profit==null?'시세 부족':percent(primary.margin)):'재료';
   performance.append(profit,margin);
-  if(ev.hasVendor){const profit=document.createElement('span'),margin=document.createElement('span');profit.className=outcome(ev.vendorProfit);profit.textContent='상점 '+signedMoney(ev.vendorProfit);margin.className='item-margin';margin.textContent=ev.vendorProfit==null?'시세 부족':percent(ev.vendorMargin);performance.append(profit,margin);}
+  if(ev.hasVendor){const secondary=document.createElement('span');secondary.className='item-secondary';secondary.textContent='경매 '+signedMoney(ev.profit)+' / '+percent(ev.margin);secondary.title='경매장 구매 기준 · 재료비 '+money(ev.cost);performance.append(secondary);}
   b.append(main,performance);b.onclick=()=>{selected=item;hidden.clear();list();render();};$('items').append(b);
  }
  if(!items.length){const p=document.createElement('p');p.className='muted';p.style.padding='16px';p.textContent='일치하는 품목이 없어요.';$('items').append(p);}
@@ -124,23 +124,23 @@ function render(){
   li.append(name,qty,meta);$('quest-use-list').append(li);
  }
  $('latest').textContent=money(last?.min);$('average').textContent=money(priced.length?priced.reduce((s,p)=>s+p.min,0)/priced.length:null);
- const ev=evaluations.get(item.id);
+ const ev=evaluations.get(item.id),primary=primaryPurchase(ev);
  $('quantity').textContent=last?.qty!=null?`${last.qty.toLocaleString('ko-KR')}개`:'—';
- $('cost').textContent=(ev.hasVendor?'경매 ':'')+money(ev.cost);
- $('vendor-cost').hidden=!ev.hasVendor;$('vendor-cost').textContent='상점 '+money(ev.vendorCost);
+ $('cost').textContent=(ev.hasVendor?'상점 ':'')+money(primary.cost);
+ $('auction-cost').hidden=!ev.hasVendor;$('auction-cost').textContent='경매 '+money(ev.cost);
  $('profit-stats').hidden=!item.recipe;
- $('profit').textContent=signedMoney(ev.profit);$('profit').className=outcome(ev.profit);
- $('margin').textContent=percent(ev.margin);$('margin').className=outcome(ev.margin);
- $('profit-basis').textContent=ev.hasVendor?'경매장 구매 · ':'';$('margin-basis').textContent=ev.hasVendor?'경매장 구매 · ':'';
- $('vendor-profit-stat').hidden=!ev.hasVendor;$('vendor-margin-stat').hidden=!ev.hasVendor;
- $('vendor-profit').textContent=signedMoney(ev.vendorProfit);$('vendor-profit').className=outcome(ev.vendorProfit);
- $('vendor-margin').textContent=percent(ev.vendorMargin);$('vendor-margin').className=outcome(ev.vendorMargin);
- $('valuation-note').textContent=item.recipe?'이득 = 최근 판매가 × 95% − 최근 재료비. 수익률 = 이득 ÷ 재료비 × 100.'+(ev.hasVendor?' 상점 구매는 확인된 상점 재료만 저장된 구매가로 대체하고, 나머지는 경매 시세를 적용합니다. 상점가는 마지막 상점 방문 시의 할인 적용가이며 과거 그래프에도 같은 가격을 사용합니다.':'')+(ev.profit==null?' 시세가 부족한 경우 —로 표시합니다.':''):'';
+ $('profit').textContent=signedMoney(primary.profit);$('profit').className=outcome(primary.profit);
+ $('margin').textContent=percent(primary.margin);$('margin').className=outcome(primary.margin);
+ $('profit-basis').textContent=ev.hasVendor?'상점 구매 · ':'';$('margin-basis').textContent=ev.hasVendor?'상점 구매 · ':'';
+ $('auction-profit-stat').hidden=!ev.hasVendor;$('auction-margin-stat').hidden=!ev.hasVendor;
+ $('auction-profit').textContent=signedMoney(ev.profit);
+ $('auction-margin').textContent=percent(ev.margin);
+ $('valuation-note').textContent=item.recipe?'이득 = 최근 판매가 × 95% − 최근 재료비. 수익률 = 이득 ÷ 재료비 × 100.'+(ev.hasVendor?' 상점 구매는 확인된 상점 재료만 저장된 구매가로 대체하고, 나머지는 경매 시세를 적용합니다. 상점가는 마지막 상점 방문 시의 할인 적용가이며 과거 그래프에도 같은 가격을 사용합니다.':'')+(primary.profit==null?' 시세가 부족한 경우 —로 표시합니다.':''):'';
  $('chart-period').textContent=`${date(from)} ~ ${date(to)} (한국)`;
  document.querySelectorAll('[data-hours]').forEach(b=>b.setAttribute('aria-pressed',Number(b.dataset.hours)===hours));
  const series=[{key:'min',label:'경매 최저가',color:'#73d6ac',value:t=>priceAt(item.id,t),points:points.map(p=>({t:p.t,v:p.min}))}];
- if(item.recipe){series.push({key:'cost',label:ev.hasVendor?'재료비 · 경매장 구매':'재료비 합계',color:'#ff9e93',value:t=>costAt(item,t),points:points.map(p=>({t:p.t,v:costAt(item,p.t)}))});item.recipe.parts.forEach((p,i)=>series.push({key:p.id,label:byId.get(p.id).name,color:colors[i%colors.length],value:t=>priceAt(p.id,t),points:points.map(r=>({t:r.t,v:priceAt(p.id,r.t)}))}));}
- if(ev.hasVendor)series.push({key:'vendor-cost',label:'재료비 · 상점 구매',color:'#8cc5ff',value:t=>costAt(item,t,true),points:points.map(p=>({t:p.t,v:costAt(item,p.t,true)}))});
+ if(item.recipe){series.push({key:'cost',label:ev.hasVendor?'재료비 · 상점 구매':'재료비 합계',color:'#ff9e93',value:t=>costAt(item,t,ev.hasVendor),points:points.map(p=>({t:p.t,v:costAt(item,p.t,ev.hasVendor)}))});item.recipe.parts.forEach((p,i)=>series.push({key:p.id,label:byId.get(p.id).name,color:colors[i%colors.length],value:t=>priceAt(p.id,t),points:points.map(r=>({t:r.t,v:priceAt(p.id,r.t)}))}));}
+ if(ev.hasVendor)series.splice(2,0,{key:'auction-cost',label:'재료비 · 경매장 구매 (보조)',color:'#8cc5ff',value:t=>costAt(item,t),points:points.map(p=>({t:p.t,v:costAt(item,p.t)}))});
  $('legend').replaceChildren();
  for(const s of series){const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',!hidden.has(s.key));const sw=document.createElement('span');sw.className='swatch';sw.style.setProperty('--series-color',s.color);b.append(sw,document.createTextNode(s.label));b.onclick=()=>{hidden.has(s.key)?hidden.delete(s.key):hidden.add(s.key);render();};$('legend').append(b);}
  for(const [key,label,color] of [['buy','■ 내 구매',BUY_COLOR],['sale','◆ 내 판매 / ◇ 추정',SALE_COLOR]]){const b=document.createElement('button');b.type='button';b.style.color=color;b.setAttribute('aria-pressed',!hidden.has(key));b.textContent=label;b.onclick=()=>{hidden.has(key)?hidden.delete(key):hidden.add(key);render();};$('legend').append(b);}
@@ -174,7 +174,7 @@ function render(){
  for(const p of [...points].reverse()){
   const tr=document.createElement('tr'),cost=costAt(item,p.t),vendorCost=costAt(item,p.t,true),ah=profitFor(p.min,cost),vendor=profitFor(p.min,vendorCost);
   const cells=[[date(p.t)],[p.min==null?'매물 없음':money(p.min)],[(p.qty??0).toLocaleString('ko-KR')+'개'],[money(cost),money(vendorCost)],[signedMoney(ah.profit),signedMoney(vendor.profit)],[percent(ah.margin),percent(vendor.margin)]];
-  cells.forEach((values,i)=>{const td=document.createElement('td');if(ev.hasVendor&&i>=3){values.forEach((value,j)=>{const line=document.createElement('div');line.textContent=(j?'상점 ':'경매 ')+value;td.append(line);});}else td.textContent=values[0];tr.append(td);});$('rows').append(tr);
+  cells.forEach((values,i)=>{const td=document.createElement('td');if(ev.hasVendor&&i>=3){[...values].reverse().forEach((value,j)=>{const line=document.createElement('div');line.textContent=(j?'경매 ':'상점 ')+value;if(j)line.className='auction-comparison';td.append(line);});}else td.textContent=values[0];tr.append(td);});$('rows').append(tr);
  }
  $('trade-rows').replaceChildren();
  for(const t of [...trades].reverse()){const row=document.createElement('tr');for(const value of [date(t.t),byId.get(t.id).name,tradeLabel(t),t.qty==null?'—':t.qty.toLocaleString('ko-KR')+'개',money(t.price),statusLabel(t)]){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}$('trade-rows').append(row);}

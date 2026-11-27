@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { evaluateLatest, recipeCosts, compareItems } from './economics.mjs';
+import { evaluateLatest, recipeCosts, compareItems, primaryPurchase } from './economics.mjs';
 
 const product = { id: 20, name: '제작품', history: [{ min: 1000 }],
   recipe: { outQty: 2, parts: [{ id: 10, qty: 2 }, { id: 12, qty: 3 }] } };
@@ -26,4 +26,14 @@ const historical = recipeCosts(product, new Map([[10, herb], [12, vial]]), id =>
 assert.equal(historical.cost, null);
 assert.ok(Math.abs(historical.vendorCost - 45.4) < 1e-9);
 const other = { id: 30, name: '다른 제작품' };
-assert.ok(compareItems(product, other, 'profit', new Map([[20, value], [30, { profit: value.profit - 1, vendorProfit: value.vendorProfit + 100 }]])) < 0);
+const alternative = { hasVendor: true, sale: value.sale + 100, profit: value.profit + 100,
+  margin: value.margin + 100, vendorProfit: value.vendorProfit - 1, vendorMargin: value.vendorMargin - 1 };
+const sorted = new Map([[20, value], [30, alternative]]);
+assert.ok(compareItems(product, other, 'profit', sorted) < 0);
+assert.ok(compareItems(product, other, 'margin', sorted) < 0);
+assert.ok(compareItems(product, other, 'price', sorted) > 0);
+assert.equal(primaryPurchase(missing).profit, missing.vendorProfit);
+assert.equal(primaryPurchase({ hasVendor: true, vendorProfit: null, profit: 999 }).profit, null);
+assert.equal(primaryPurchase({ hasVendor: false, profit: 100 }).profit, 100);
+sorted.set(20, { hasVendor: true, vendorProfit: null, profit: 999999 });
+assert.ok(compareItems(product, other, 'profit', sorted) > 0);

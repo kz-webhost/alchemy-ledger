@@ -51,11 +51,20 @@ export function evaluateLatest(item, byId) {
   return { sale, ...costs, ...profitFor(sale, costs.cost), vendorProfit: vendor.profit, vendorMargin: vendor.margin };
 }
 
+export function primaryPurchase(evaluation) {
+  if (!evaluation.hasVendor) return evaluation;
+  return { cost: evaluation.vendorCost, profit: evaluation.vendorProfit, margin: evaluation.vendorMargin };
+}
+
 export function compareItems(a, b, mode, evaluations) {
   const names = () => a.name.localeCompare(b.name, 'ko');
   if (mode === 'name') return names();
   const key = mode === 'price' ? 'sale' : mode === 'margin' ? 'margin' : 'profit';
-  const av = evaluations.get(a.id)[key], bv = evaluations.get(b.id)[key];
+  const value = item => {
+    const evaluation = evaluations.get(item.id);
+    return key === 'sale' ? evaluation.sale : primaryPurchase(evaluation)[key];
+  };
+  const av = value(a), bv = value(b);
   if (av == null) return bv == null ? names() : 1;
   if (bv == null) return -1;
   return bv - av || names();
